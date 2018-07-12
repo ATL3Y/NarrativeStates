@@ -1,0 +1,10 @@
+.vscode
+*.csproj
+*.sln
+Library/
+Temp/
+obj/
+Stately/*.meta
+docs/_build
+docs/_static
+docs/_templates
