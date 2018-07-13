@@ -18,10 +18,10 @@ public class PlayerState : MonoBehaviour {
     AudioClip backwardsClip;
 
     State rootState = new State("root");
-    State idleState = new Stately.State("idle"); // Intro
-    State storyState = new State("story");
-    State exploreState = new State("explore");
-    State backwardsState = new State("backwards");
+    State introState = new Stately.State("intro");
+    State forwardState = new State("forward");
+    State stoppedState = new State("stopped");
+    State backwardState = new State("backward");
 
     Vector3 startPos;
 
@@ -47,7 +47,7 @@ public class PlayerState : MonoBehaviour {
         };
 
         // Debug: reset to origin if press "r".
-        rootState.ChangeToSubState ( idleState ).If ( ( ) => Input.GetButtonDown ( "Reset" ) ).ThenDo ( delegate
+        rootState.ChangeToSubState ( introState ).If ( ( ) => Input.GetButtonDown ( "Reset" ) ).ThenDo ( delegate
         {
             transform.position = startPos;
             SetColor ( this.gameObject, Color.yellow );
@@ -57,20 +57,21 @@ public class PlayerState : MonoBehaviour {
         } );
 
         // Press "enter" to start the story.
-        idleState.ChangeTo ( storyState ).If ( ( ) => Input.GetButtonDown ( "Submit" ) ).ThenDo ( delegate
+        introState.ChangeTo ( forwardState ).If ( ( ) => Input.GetButtonDown ( "Submit" ) ).ThenDo ( delegate
         {
             SetColor ( this.gameObject, Color.green );
             SetVisible ( ghostMother, false );
             SetMusic ( storyClip );
+
         } );
 
-        storyState.OnUpdate = delegate
+        forwardState.OnUpdate = delegate
         {
             transform.position += Vector3.forward * Time.deltaTime;
             ghostMother.transform.position += Vector3.forward * Time.deltaTime;
         };
 
-        storyState.ChangeTo ( exploreState ).If ( ( ) => InputFirstDown ( ) ).ThenDo ( delegate
+        forwardState.ChangeTo ( stoppedState ).If ( ( ) => InputStatic( ) ).ThenDo ( delegate
         {
             SetColor ( this.gameObject, Color.red );
             SetVisible ( ghostMother, true );
@@ -78,27 +79,22 @@ public class PlayerState : MonoBehaviour {
             particles.Play ( );
         } ) ;
 
-        exploreState.ChangeTo ( backwardsState ).If ( ( ) => InputSecondDown ( ) ).ThenDo ( delegate
+        forwardState.ChangeTo ( backwardState ).If ( ( ) => InputBackward( ) ).ThenDo ( delegate
         {
             SetColor ( this.gameObject, Color.blue );
             SetMusic ( backwardsClip );
             particles.Stop ( );
         } );
 
-        backwardsState.OnUpdate = delegate
-        {
-            transform.position -= Vector3.forward * Time.deltaTime;
-            ghostMother.transform.position -= Vector3.forward * Time.deltaTime;
-        };
 
-        backwardsState.ChangeTo ( exploreState ).If ( ( ) => InputFirstUp ( ) ).ThenDo ( delegate
+        stoppedState.ChangeTo ( backwardState ).If ( ( ) => InputBackward ( ) ).ThenDo ( delegate
         {
-            SetColor ( this.gameObject, Color.red );
-            SetMusic ( exploreClip );
-            particles.Play ( );
+            SetColor ( this.gameObject, Color.blue );
+            SetMusic ( backwardsClip );
+            particles.Stop ( );
         } );
 
-        exploreState.ChangeTo ( storyState ).If ( ( ) => InputSecondUp ( ) ).ThenDo ( delegate
+        stoppedState.ChangeTo ( forwardState ).If ( ( ) => InputForward( ) ).ThenDo ( delegate
         {
             SetColor ( this.gameObject, Color.green );
             SetVisible ( ghostMother, false );
@@ -106,6 +102,29 @@ public class PlayerState : MonoBehaviour {
             particles.Stop ( );
         } );
 
+        backwardState.ChangeTo ( forwardState ).If ( ( ) => InputForward ( ) ).ThenDo ( delegate
+        {
+        } );
+
+
+        backwardState.ChangeTo ( stoppedState ).If ( ( ) => InputStatic( ) ).ThenDo ( delegate
+        {
+        } );
+
+        backwardState.OnUpdate = delegate
+        {
+            transform.position -= Vector3.forward * Time.deltaTime;
+            ghostMother.transform.position -= Vector3.forward * Time.deltaTime;
+        };
+
+        //backwardState.ChangeTo ( stoppedState ).If ( ( ) => InputFirstUp ( ) ).ThenDo ( delegate
+        //{
+        //    SetColor ( this.gameObject, Color.red );
+        //    SetMusic ( exploreClip );
+        //    particles.Play ( );
+        //} );
+
+       
         
     }
 
@@ -148,6 +167,40 @@ public class PlayerState : MonoBehaviour {
             bothLastFrame = false;
         }
     }
+
+
+    bool InputForward ( )
+    {
+        print ( "InputForward" );
+        if ( ( !Input.GetButton ( leftButton ) && !Input.GetButton ( rightButton ) ) )
+        {
+            return true;
+        }
+        return false;
+    }
+
+
+    bool InputBackward ( )
+    {
+        print ( "InputForward" );
+        if ( ( Input.GetButton ( leftButton ) && Input.GetButton ( rightButton )  || ( Input.GetButtonDown ( leftButton ) && Input.GetButtonDown ( rightButton ) ) ) )
+        {
+            return true;
+        }
+        return false;
+    }
+
+    bool InputStatic ( )
+    {
+        print ( "InputForward" );
+        if ( ( Input.GetButtonUp ( leftButton ) && Input.GetButtonUp ( rightButton ) ) )
+        {
+            return true;
+        }
+        return false;
+    }
+
+
 
     // Return true on the frame the first button is pressed down.
     bool InputFirstDown ( )
