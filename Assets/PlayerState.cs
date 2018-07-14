@@ -10,18 +10,14 @@ public class PlayerState : MonoBehaviour {
     AudioSource audiosource;
     [SerializeField]
     ParticleSystem particles;
-    [SerializeField]
-    AudioClip storyClip;
-    [SerializeField]
-    AudioClip exploreClip;
-    [SerializeField]
-    AudioClip backwardsClip;
+    [SerializeField] AudioClip[] music;
 
     State rootState = new State("root");
     State introState = new Stately.State("intro");
     State forwardState = new State("forward");
     State stoppedState = new State("stopped");
     State backwardState = new State("backward");
+    private State endState = new State("end");
 
     Vector3 startPos;
 
@@ -40,12 +36,10 @@ public class PlayerState : MonoBehaviour {
 
     void DefineStateMachine ( )
     {
-        //Edit this value to change how long befre stop is evaluate (times the deltaTime)
-        int inputDelayMultiplier = 30;
-
-        rootState.OnUpdate = delegate 
+        rootState.OnUpdate = delegate
         {
-            Debug.Log ( rootState.CurrentStatePath );
+            // Debug.Log ( rootState.CurrentStatePath );
+            UpdateInputs ( );
         };
 
         // Debug: reset to origin if press "r".
@@ -67,172 +61,82 @@ public class PlayerState : MonoBehaviour {
             ghostMother.transform.position += Vector3.forward * Time.deltaTime;
         };
 
+        // Press "E" to end. 
+        forwardState.ChangeTo ( endState ).If ( ( ) => Input.GetKeyDown ( KeyCode.E ) ).ThenDo ( delegate
+        {
+            SetColor ( this.gameObject, Color.white );
+            SetMusic ( null );
+        } );
 
-        //I got rid of duplicate code by setting certain properties on OnEnter
+        System.Func<bool> shouldStopCheck = () => IsNumDown ( 1 );
+        System.Func<bool> shouldForwardCheck = () => IsNumDown ( 0 );
+        System.Func<bool> shouldBackwardCheck = () => IsNumDown ( 2 );
+
+        forwardState.ChangeTo ( stoppedState ).If ( shouldStopCheck );
+        forwardState.ChangeTo ( backwardState ).If ( shouldBackwardCheck );
+
+        stoppedState.ChangeTo ( backwardState ).If ( shouldBackwardCheck );
+        stoppedState.ChangeTo ( forwardState ).If ( shouldForwardCheck );
+
+        backwardState.ChangeTo ( forwardState ).If ( shouldForwardCheck );
+        backwardState.ChangeTo ( stoppedState ).If ( shouldStopCheck );
+
         forwardState.OnEnter = delegate
         {
-            SetColor(this.gameObject, Color.green);
-            SetVisible(ghostMother, false);
-            SetMusic(storyClip);
-            particles.Stop();
-
+            Debug.Log ( rootState.CurrentStatePath + ".OnEnter" );
+            SetColor ( this.gameObject, Color.green );
+            SetVisible ( ghostMother, false );
+            SetMusic ( music [ 0 ] );
+            particles.Stop ( );
         };
-        forwardState.ChangeTo(backwardState).If(() => InputBackward());
-        //So my solution to making sure stop didn't happen immediately is to add in a delay the "AndAfter" check
-        //It is possible to jump right to backwardState if both buttons are pressed, but it all depends on the number multiplying Time.deltaTime in AndAfter()
-        forwardState.ChangeTo(stoppedState).If(() => InputStopped()).AndAfter(Time.deltaTime * inputDelayMultiplier);
 
         stoppedState.OnEnter = delegate
         {
-            SetColor(this.gameObject, Color.red);
-            SetVisible(ghostMother, true);
-            SetMusic(exploreClip);
-            particles.Play();
-        };
-
-        stoppedState.ChangeTo(forwardState).If(() => InputForward());
-        stoppedState.ChangeTo( backwardState).If(() => InputBackward());
-
-        backwardState.OnUpdate = delegate
-        {
-            transform.position -= Vector3.forward * Time.deltaTime;
-            ghostMother.transform.position -= Vector3.forward * Time.deltaTime;
+            Debug.Log ( rootState.CurrentStatePath + ".OnEnter" );
+            SetColor ( this.gameObject, Color.red );
+            SetVisible ( ghostMother, true );
+            SetMusic ( music [ 1 ] );
+            particles.Play ( );
         };
 
         backwardState.OnEnter = delegate
         {
-            SetColor(this.gameObject, Color.blue);
-            SetMusic(backwardsClip);
-            particles.Stop();
+            Debug.Log ( rootState.CurrentStatePath + ".OnEnter" );
+            SetColor ( this.gameObject, Color.blue );
+            SetVisible ( ghostMother, true );
+            SetMusic ( music [ 2 ] );
+            particles.Stop ( );
         };
 
-        backwardState.ChangeTo(forwardState).If(() => InputForward());
-        backwardState.ChangeTo(stoppedState).If(() => InputStopped() ).AndAfter(Time.deltaTime * inputDelayMultiplier);
+        forwardState.OnUpdate = delegate
+        {
+            transform.localPosition += transform.forward * Time.deltaTime;
+        };
+
+        backwardState.OnUpdate = delegate
+        {
+            transform.localPosition -= transform.forward * Time.deltaTime;
+        };
     }
 
-    // "Fire1" = Mouse 0 || L Ctrl.
-    // "Fire2" = Mouse 1 || L Alt.
-
-    private string leftButton = "Fire1";
-    private string rightButton = "Fire2";
-
-    private bool noneLastFrame = false;
-    private bool oneLastFrame = false;
-    private bool bothLastFrame = false;
-
-    //enum TransitionType {
-    //    Forward,
-    //    Backward,
-    //    Stopped,
-    //};
-
-    bool InputForward ( )
+    int numDown = 0;
+    private bool IsNumDown ( int num )
     {
-        //Test if no buttons
-        if (
-          (!Input.GetButton(leftButton) && !Input.GetButton(rightButton))
-        )
-        {
-            return true;
-        }
-        return false;
+        return ( num == numDown );
     }
 
-
-    bool InputBackward ( )
+    void UpdateInputs ( )
     {
-        //Test if both buttons down
-        if (
-            (Input.GetButton(leftButton) && Input.GetButton(rightButton) ) 
-        )
+        numDown = 0;
+        if ( Input.GetMouseButton ( 0 ) ) 
         {
-            return true;
+            numDown++;
         }
-        return false;
-    }
-
-    //float delayTime = 0;
-
-    bool InputStopped ( )
-    {
-        //Test if only one button
-        if (
-              (Input.GetButton(leftButton) && !Input.GetButton(rightButton)) ||
-              (Input.GetButton(rightButton) && !Input.GetButton(leftButton))
-          )
+        if ( Input.GetMouseButton ( 1 ) )
         {
-            return true;
+            numDown++;
         }
-        return false;
-
-        //If instead you want to delay with more specific logic than "AndAfter", you can store the time and evaluate how how time passed
-        //Commenting out code
-
-        //bool check = (Input.GetButton(leftButton) && !Input.GetButton(rightButton)) || (Input.GetButton(rightButton) && !Input.GetButton(leftButton));
-        ////Test if no buttons
-        //if (
-        //    check &&
-        //    (Time.time >= delayTime)
-        //    )
-        //{
-        //    delayTime = 0;
-        //    return true;
-        //}
-        //if (check && delayTime == 0)
-        //{
-        //    delayTime = Time.time + 1;
-        //}
-
-        //return false;
-
-
-    }
-
-
-
-    // Return true on the frame the first button is pressed down.
-    bool InputFirstDown ( )
-    {
-        print ( "InputFirstDown check" );
-        if( noneLastFrame && ( Input.GetButtonDown ( leftButton ) || Input.GetButtonDown ( rightButton ) ) )
-        {
-            return true;
-        }
-        return false;
-    }
-
-    // Return true on the frame the second button is pressed down.
-    
-    bool InputSecondDown ( )
-    {
-        print ( "InputSecondDown check" );
-        if ( oneLastFrame && ( Input.GetButtonDown ( leftButton ) || Input.GetButtonDown ( rightButton ) ) )
-        {
-            return true;
-        }
-        return false;
-    }
-
-    
-    bool InputFirstUp ( )
-    {
-        print ( "InputFirstUp check" );
-        if ( bothLastFrame && ( Input.GetButtonUp ( leftButton ) || Input.GetButtonUp ( rightButton ) ) )
-        {
-            return true;
-        }
-        return false;
-    }
-
-    // Return true on the frame the second button is lifted up. 
-    bool InputSecondUp ( )
-    {
-        print ( "InputSecondUp check" );
-        if ( oneLastFrame && ( Input.GetButtonUp ( leftButton ) || Input.GetButtonUp ( rightButton ) ) )
-        {
-            return true;
-        }
-        return false;
+        return;
     }
 
     void Update ()
