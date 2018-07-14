@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using Stately;
 
@@ -40,10 +40,12 @@ public class PlayerState : MonoBehaviour {
 
     void DefineStateMachine ( )
     {
+        //Edit this value to change how long befre stop is evaluate (times the deltaTime)
+        int inputDelayMultiplier = 30;
+
         rootState.OnUpdate = delegate 
         {
             Debug.Log ( rootState.CurrentStatePath );
-            UpdateInputState ( );
         };
 
         // Debug: reset to origin if press "r".
@@ -57,13 +59,7 @@ public class PlayerState : MonoBehaviour {
         } );
 
         // Press "enter" to start the story.
-        introState.ChangeTo ( forwardState ).If ( ( ) => Input.GetButtonDown ( "Submit" ) ).ThenDo ( delegate
-        {
-            SetColor ( this.gameObject, Color.green );
-            SetVisible ( ghostMother, false );
-            SetMusic ( storyClip );
-
-        } );
+        introState.ChangeTo ( forwardState ).If ( ( ) => Input.GetButtonDown ( "Submit" ) );
 
         forwardState.OnUpdate = delegate
         {
@@ -71,45 +67,31 @@ public class PlayerState : MonoBehaviour {
             ghostMother.transform.position += Vector3.forward * Time.deltaTime;
         };
 
-        forwardState.ChangeTo ( stoppedState ).If ( ( ) => InputStatic( ) ).ThenDo ( delegate
+
+        //I got rid of duplicate code by setting certain properties on OnEnter
+        forwardState.OnEnter = delegate
         {
-            SetColor ( this.gameObject, Color.red );
-            SetVisible ( ghostMother, true );
-            SetMusic ( exploreClip );
-            particles.Play ( );
-        } ) ;
+            SetColor(this.gameObject, Color.green);
+            SetVisible(ghostMother, false);
+            SetMusic(storyClip);
+            particles.Stop();
 
-        forwardState.ChangeTo ( backwardState ).If ( ( ) => InputBackward( ) ).ThenDo ( delegate
+        };
+        forwardState.ChangeTo(backwardState).If(() => InputBackward());
+        //So my solution to making sure stop didn't happen immediately is to add in a delay the "AndAfter" check
+        //It is possible to jump right to backwardState if both buttons are pressed, but it all depends on the number multiplying Time.deltaTime in AndAfter()
+        forwardState.ChangeTo(stoppedState).If(() => InputStopped()).AndAfter(Time.deltaTime * inputDelayMultiplier);
+
+        stoppedState.OnEnter = delegate
         {
-            SetColor ( this.gameObject, Color.blue );
-            SetMusic ( backwardsClip );
-            particles.Stop ( );
-        } );
+            SetColor(this.gameObject, Color.red);
+            SetVisible(ghostMother, true);
+            SetMusic(exploreClip);
+            particles.Play();
+        };
 
-
-        stoppedState.ChangeTo ( backwardState ).If ( ( ) => InputBackward ( ) ).ThenDo ( delegate
-        {
-            SetColor ( this.gameObject, Color.blue );
-            SetMusic ( backwardsClip );
-            particles.Stop ( );
-        } );
-
-        stoppedState.ChangeTo ( forwardState ).If ( ( ) => InputForward( ) ).ThenDo ( delegate
-        {
-            SetColor ( this.gameObject, Color.green );
-            SetVisible ( ghostMother, false );
-            SetMusic ( storyClip );
-            particles.Stop ( );
-        } );
-
-        backwardState.ChangeTo ( forwardState ).If ( ( ) => InputForward ( ) ).ThenDo ( delegate
-        {
-        } );
-
-
-        backwardState.ChangeTo ( stoppedState ).If ( ( ) => InputStatic( ) ).ThenDo ( delegate
-        {
-        } );
+        stoppedState.ChangeTo(forwardState).If(() => InputForward());
+        stoppedState.ChangeTo( backwardState).If(() => InputBackward());
 
         backwardState.OnUpdate = delegate
         {
@@ -117,15 +99,15 @@ public class PlayerState : MonoBehaviour {
             ghostMother.transform.position -= Vector3.forward * Time.deltaTime;
         };
 
-        //backwardState.ChangeTo ( stoppedState ).If ( ( ) => InputFirstUp ( ) ).ThenDo ( delegate
-        //{
-        //    SetColor ( this.gameObject, Color.red );
-        //    SetMusic ( exploreClip );
-        //    particles.Play ( );
-        //} );
+        backwardState.OnEnter = delegate
+        {
+            SetColor(this.gameObject, Color.blue);
+            SetMusic(backwardsClip);
+            particles.Stop();
+        };
 
-       
-        
+        backwardState.ChangeTo(forwardState).If(() => InputForward());
+        backwardState.ChangeTo(stoppedState).If(() => InputStopped() ).AndAfter(Time.deltaTime * inputDelayMultiplier);
     }
 
     // "Fire1" = Mouse 0 || L Ctrl.
@@ -138,41 +120,18 @@ public class PlayerState : MonoBehaviour {
     private bool oneLastFrame = false;
     private bool bothLastFrame = false;
 
-    void UpdateInputState ( )
-    {
-        print ( "UpdateInputState" );
-        if ( !Input.GetButton ( leftButton ) && !Input.GetButton ( rightButton ) )
-        {
-            noneLastFrame = true;
-        }
-        else
-        {
-            noneLastFrame = false;
-        }
-        if ( ( Input.GetButton ( leftButton ) && !Input.GetButton ( rightButton ) )
-            || ( !Input.GetButton ( leftButton ) && Input.GetButton ( rightButton ) ) )
-        {
-            oneLastFrame = true;
-        }
-        else
-        {
-            oneLastFrame = false;
-        }
-        if ( Input.GetButton ( leftButton ) && Input.GetButton ( rightButton ) )
-        {
-            bothLastFrame = true;
-        }
-        else
-        {
-            bothLastFrame = false;
-        }
-    }
-
+    //enum TransitionType {
+    //    Forward,
+    //    Backward,
+    //    Stopped,
+    //};
 
     bool InputForward ( )
     {
-        print ( "InputForward" );
-        if ( ( !Input.GetButton ( leftButton ) && !Input.GetButton ( rightButton ) ) )
+        //Test if no buttons
+        if (
+          (!Input.GetButton(leftButton) && !Input.GetButton(rightButton))
+        )
         {
             return true;
         }
@@ -182,22 +141,51 @@ public class PlayerState : MonoBehaviour {
 
     bool InputBackward ( )
     {
-        print ( "InputForward" );
-        if ( ( Input.GetButton ( leftButton ) && Input.GetButton ( rightButton )  || ( Input.GetButtonDown ( leftButton ) && Input.GetButtonDown ( rightButton ) ) ) )
+        //Test if both buttons down
+        if (
+            (Input.GetButton(leftButton) && Input.GetButton(rightButton) ) 
+        )
         {
             return true;
         }
         return false;
     }
 
-    bool InputStatic ( )
+    //float delayTime = 0;
+
+    bool InputStopped ( )
     {
-        print ( "InputForward" );
-        if ( ( Input.GetButtonUp ( leftButton ) && Input.GetButtonUp ( rightButton ) ) )
+        //Test if only one button
+        if (
+              (Input.GetButton(leftButton) && !Input.GetButton(rightButton)) ||
+              (Input.GetButton(rightButton) && !Input.GetButton(leftButton))
+          )
         {
             return true;
         }
         return false;
+
+        //If instead you want to delay with more specific logic than "AndAfter", you can store the time and evaluate how how time passed
+        //Commenting out code
+
+        //bool check = (Input.GetButton(leftButton) && !Input.GetButton(rightButton)) || (Input.GetButton(rightButton) && !Input.GetButton(leftButton));
+        ////Test if no buttons
+        //if (
+        //    check &&
+        //    (Time.time >= delayTime)
+        //    )
+        //{
+        //    delayTime = 0;
+        //    return true;
+        //}
+        //if (check && delayTime == 0)
+        //{
+        //    delayTime = Time.time + 1;
+        //}
+
+        //return false;
+
+
     }
 
 
