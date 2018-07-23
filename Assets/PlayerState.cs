@@ -2,15 +2,17 @@ using System.Collections.Generic;
 using UnityEngine;
 using Stately;
 
-public class PlayerState : MonoBehaviour {
+public class PlayerState : MonoBehaviour
+{
 
     [SerializeField]
-    GameObject ghostMother;
+    GameObject friend;
     [SerializeField]
     AudioSource audiosource;
     [SerializeField]
     ParticleSystem particles;
-    [SerializeField] AudioClip[] music;
+    [SerializeField]
+    AudioClip[] music;
 
     State rootState = new State("root");
     State introState = new Stately.State("intro");
@@ -21,7 +23,7 @@ public class PlayerState : MonoBehaviour {
 
     Vector3 startPos;
 
-	void Awake ()
+    void Awake ( )
     {
         audiosource.loop = true;
         audiosource.volume = 1.0f;
@@ -32,7 +34,7 @@ public class PlayerState : MonoBehaviour {
 
         DefineStateMachine ( );
         rootState.Start ( );
-	}
+    }
 
     void DefineStateMachine ( )
     {
@@ -47,7 +49,7 @@ public class PlayerState : MonoBehaviour {
         {
             transform.position = startPos;
             SetColor ( this.gameObject, Color.yellow );
-            SetVisible ( ghostMother, true );
+            SetVisible ( friend, false );
             SetMusic ( null );
             particles.Stop ( );
         } );
@@ -58,7 +60,7 @@ public class PlayerState : MonoBehaviour {
         forwardState.OnUpdate = delegate
         {
             transform.position += Vector3.forward * Time.deltaTime;
-            ghostMother.transform.position += Vector3.forward * Time.deltaTime;
+            friend.transform.position += Vector3.forward * Time.deltaTime;
         };
 
         // Press "E" to end. 
@@ -85,7 +87,7 @@ public class PlayerState : MonoBehaviour {
         {
             Debug.Log ( rootState.CurrentStatePath + ".OnEnter" );
             SetColor ( this.gameObject, Color.green );
-            SetVisible ( ghostMother, false );
+            SetVisible ( friend, true );
             SetMusic ( music [ 0 ] );
             particles.Stop ( );
         };
@@ -94,7 +96,7 @@ public class PlayerState : MonoBehaviour {
         {
             Debug.Log ( rootState.CurrentStatePath + ".OnEnter" );
             SetColor ( this.gameObject, Color.red );
-            SetVisible ( ghostMother, true );
+            SetVisible ( friend, false );
             SetMusic ( music [ 1 ] );
             particles.Play ( );
         };
@@ -103,7 +105,7 @@ public class PlayerState : MonoBehaviour {
         {
             Debug.Log ( rootState.CurrentStatePath + ".OnEnter" );
             SetColor ( this.gameObject, Color.blue );
-            SetVisible ( ghostMother, true );
+            SetVisible ( friend, false );
             SetMusic ( music [ 2 ] );
             particles.Stop ( );
         };
@@ -128,7 +130,7 @@ public class PlayerState : MonoBehaviour {
     void UpdateInputs ( )
     {
         numDown = 0;
-        if ( Input.GetMouseButton ( 0 ) ) 
+        if ( Input.GetMouseButton ( 0 ) )
         {
             numDown++;
         }
@@ -139,10 +141,10 @@ public class PlayerState : MonoBehaviour {
         return;
     }
 
-    void Update ()
+    void Update ( )
     {
         rootState.Update ( Time.deltaTime );
-	}
+    }
 
     void FixedUpdate ( )
     {
@@ -172,6 +174,6 @@ public class PlayerState : MonoBehaviour {
             audiosource.Stop ( );
         }
         audiosource.clip = clip;
-        audiosource.Play ( ); // what if clip == null?
+        audiosource.Play ( );
     }
 }
